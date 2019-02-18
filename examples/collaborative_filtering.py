@@ -72,11 +72,11 @@ critics = {
 from math import sqrt
 
 # Возвращает оценку подобия person1 и person2 на основе расстояния
-def euclidean_distance(person1, person2):
+def euclidean_distance(prefs, person1, person2):
     # Получить список предметов, оцененных обоими
     si={}
-    for item in critics[person1]:
-        if item in critics[person2]:
+    for item in prefs[person1]:
+        if item in prefs[person2]:
             si[item]=1
 
     # Если нет ни одной общей оценки, вернуть 0
@@ -84,45 +84,11 @@ def euclidean_distance(person1, person2):
 
     # Сложить квадраты разностей
     sum_of_squares = 0
-    for item in critics[person1]:
-        if item in critics[person2]:
-            sum_of_squares = sum_of_squares + pow(critics[person1][item] - critics[person2][item], 2)
+    for item in prefs[person1]:
+        if item in prefs[person2]:
+            sum_of_squares = sum_of_squares + pow(prefs[person1][item] - prefs[person2][item], 2)
 
     return 1 / (1 + sum_of_squares)
-
-
-# compare all users by euclidean distance
-def get_rating(func):
-    critics_names = list(critics.keys())
-    critics_compare = {}
-
-    # get every user from names
-    i = 0
-    while i < len(critics_names):
-        name1 = critics_names[i]
-        j = i + 1
-
-        # get all users after previous
-        while j < len(critics_names):
-            name2 = critics_names[j]
-            comp = ', '.join(sorted([name1, name2]))
-            critics_compare[comp] = func(name1, name2)
-            j = j + 1
-
-        i = i + 1
-
-    critics_list = []
-    for key in critics_compare.keys():
-        critics_list.append({
-            'users': key,
-            'rating': critics_compare[key]
-        })
-
-    critics_list = sorted(critics_list, key=lambda value: -1 * value['rating'])
-
-    print('critics_list', critics_list)
-
-
 
 """
 [{
@@ -199,11 +165,11 @@ def get_rating(func):
 Например, при помощи критерия корреляции Пирсона можно ответить на вопрос о наличии связи между температурой тела и содержанием лейкоцитов в крови при острых респираторных инфекциях, между ростом и весом пациента, между содержанием в питьевой воде фтора и заболеваемостью населения кариесом.
 '''
 # Возвращает коэффициент корреляции Пирсона между p1 и p2
-def pearson_correlation(p1, p2):
+def pearson_correlation(prefs, p1, p2):
     # Получить список предметов, оцененных обоими
     si={}
-    for item in critics[p1]:
-        if item in critics[p2]: si[item]=1
+    for item in prefs[p1]:
+        if item in prefs[p2]: si[item]=1
 
     # Найти число элементов
     n=len(si)
@@ -211,24 +177,19 @@ def pearson_correlation(p1, p2):
     if n==0: return 0
 
     # Вычислить сумму всех предпочтений
-    sum1=sum([critics[p1][it] for it in si])
-    sum2=sum([critics[p2][it] for it in si])
+    sum1=sum([prefs[p1][it] for it in si])
+    sum2=sum([prefs[p2][it] for it in si])
     # Вычислить сумму квадратов
-    sum1Sq=sum([pow(critics[p1][it],2) for it in si])
-    sum2Sq=sum([pow(critics[p2][it],2) for it in si])
+    sum1Sq=sum([pow(prefs[p1][it],2) for it in si])
+    sum2Sq=sum([pow(prefs[p2][it],2) for it in si])
     # Вычислить сумму произведений
-    pSum=sum([critics[p1][it]*critics[p2][it] for it in si])
+    pSum=sum([prefs[p1][it]*prefs[p2][it] for it in si])
     # Вычислить коэффициент Пирсона
     num=pSum-(sum1*sum2/n)
     den=sqrt((sum1Sq-pow(sum1,2)/n)*(sum2Sq-pow(sum2,2)/n))
     if den==0: return 0
     r=num/den
     return r
-
-
-
-get_rating(pearson_correlation)
-
 
 
 '''
@@ -297,3 +258,129 @@ get_rating(pearson_correlation)
     'rating': -1.0
 }]
 '''
+
+# compare all users by euclidean distance
+def get_rating(func):
+    critics_names = list(critics.keys())
+    critics_compare = {}
+
+    # get every user from names
+    i = 0
+    while i < len(critics_names):
+        name1 = critics_names[i]
+        j = i + 1
+
+        # get all users after previous
+        while j < len(critics_names):
+            name2 = critics_names[j]
+            comp = ', '.join(sorted([name1, name2]))
+            critics_compare[comp] = func(name1, name2)
+            j = j + 1
+
+        i = i + 1
+
+    critics_list = []
+    for key in critics_compare.keys():
+        critics_list.append({
+            'users': key,
+            'rating': critics_compare[key]
+        })
+
+    critics_list = sorted(critics_list, key=lambda value: -1 * value['rating'])
+
+    print('critics_list', critics_list)
+
+# get_rating(pearson_correlation)
+
+
+'''
+Имея функции для сравнения двух людей, можно написать функцию, которая будет вычислять оценку подобия всех имеющихся людей с данным человеком и искать наилучшее соответствие. В данном случае меня интересуют кинокритики с таким же вкусом, как у меня.
+'''
+
+# Возвращает список наилучших соответствий для человека из словаря prefs.
+# Количество результатов в списке и функция подобия – необязательные
+# параметры.
+def topMatches(prefs,person, n=5, similarity=euclidean_distance):
+    scores=[(similarity(prefs, person, other), other) for other in prefs if other!=person]
+    # Отсортировать список по убыванию оценок
+    scores.sort( )
+    scores.reverse( )
+    return scores[0:n]
+
+'''
+[
+    (0.3076923076923077, 'Mick LaSalle'), 
+    (0.2857142857142857, 'Michael Phillips'), 
+    (0.23529411764705882, 'Claudia Puig')
+]
+'''
+
+
+'''
+Найти подходящего критика – это, конечно, неплохо, но в действительности-то я хочу, чтобы мне порекомендовали фильм. Берем каждого из отобранных критиков и умножаем его оценку подобия со мной на оценку, которую он выставил каждому фильму. Можно было бы использовать для ранжирования сами эти суммы, но тогда фильм, который просмотрело больше людей, получил бы преимущество. Чтобы исправить эту несправедливость, необходимо разделить полученную величину на сумму коэффициентов подобия для всех критиков, которые рецензировали фильм.
+'''
+
+# Получить рекомендации для заданного человека, пользуясь взвешенным средним
+# оценок, данных всеми остальными пользователями
+def getRecommendations(prefs, person, similarity=euclidean_distance):
+    totals={}
+    simSums={}
+    for other in prefs:
+        # сравнивать меня с собой же не нужно
+        if other==person: continue
+        sim=similarity(prefs, person, other)
+
+        # игнорировать нулевые и отрицательные оценки
+        if sim<=0: continue
+
+        for item in prefs[other]:
+            # оценивать только фильмы, которые я еще не смотрел
+            if item not in prefs[person] or prefs[person][item]==0:
+                # Коэффициент подобия * Оценка
+                totals.setdefault(item,0)
+                totals[item] += prefs[other][item] * sim
+                # Сумма коэффициентов подобия
+                simSums.setdefault(item, 0)
+                simSums[item] += sim
+
+    # Создать нормализованный список
+    rankings = [
+        (total / simSums[item], item) 
+        for item, total in totals.items()
+    ]
+    
+    # Вернуть отсортированный список
+    rankings.sort( )
+    rankings.reverse()
+
+    return rankings
+
+
+# rec = getRecommendations(critics,'Toby', euclidean_distance)
+# print('getRecommendations', rec)
+'''
+[
+    (3.5002478401415877, 'The Night Listener'), 
+    (2.7561242939959363, 'Lady in the Water'), 
+    (2.461988486074374, 'Just My Luck')
+]
+'''
+
+
+
+'''
+Но что если нужно узнать, какие предметы похожи друг на друга? В данном случае вы можете определить степень сходства, выявив людей, которым понравился данный товар, и посмотрев, что еще им понравилось. По существу, это тот же метод, которым мы уже пользовались для определения похожести людей, – нужно лишь вместо людей всюду подставить товары.
+'''
+# получить рекомендации по фильму
+def transformPrefs(prefs):
+    result={}
+    for person in prefs:
+        for item in prefs[person]:
+            result.setdefault(item,{})
+            # Обменять местами человека и предмет
+            result[item][person] = prefs[person][item]
+    return result
+movies = transformPrefs(critics)
+
+tp = topMatches(movies, 'Superman Returns', 5, pearson_correlation)
+print('Recommendation by movie', tp)
