@@ -308,6 +308,7 @@ def topMatches(prefs,person, n=5, similarity=euclidean_distance):
     return scores[0:n]
 
 '''
+topMatches(critics, 'Toby')
 [
     (0.3076923076923077, 'Mick LaSalle'), 
     (0.2857142857142857, 'Michael Phillips'), 
@@ -383,4 +384,80 @@ def transformPrefs(prefs):
 movies = transformPrefs(critics)
 
 tp = topMatches(movies, 'Superman Returns', 5, pearson_correlation)
-print('Recommendation by movie', tp)
+# print('Recommendation by movie', tp)
+
+'''
+Коллаборативная фильтрация по схожести образцов.
+Когда набор данных очень велик, коллаборативная фильтрация по схожести образцов может давать лучшие результаты, причем многие вычисления можно выполнить заранее, поэтому пользователь получит рекомендации быстрее.
+'''
+def calculateSimilarItems(prefs, n=10):
+    # Создать словарь, содержащий для каждого образца те образцы, которые
+    # больше всего похожи на него.
+    result={}
+    # Обратить матрицу предпочтений, чтобы строки соответствовали образцам
+    itemPrefs = transformPrefs(prefs)
+    c = 0
+    for item in itemPrefs:
+        # Обновление состояния для больших наборов данных
+        c+=1
+        if c % 100 == 0: print("%d/%d\%".format(c, len(itemPrefs)))
+        # Найти образцы, максимально похожие на данный
+        scores=topMatches(itemPrefs, item, n=n, similarity=euclidean_distance)
+        result[item]=scores
+    return result
+
+simItms = calculateSimilarItems(critics)
+
+"""
+{
+    'Lady in the Water': [(0.4, 'You, Me and Dupree'), (0.2857142857142857, 'The Night Listener'), (0.2222222222222222, 'Snakes on a Plane'), (0.2222222222222222, 'Just My Luck'), (0.09090909090909091, 'Superman Returns')],
+    'Snakes on a Plane': [(0.2222222222222222, 'Lady in the Water'), (0.18181818181818182, 'The Night Listener'), (0.16666666666666666, 'Superman Returns'), (0.10526315789473684, 'Just My Luck'), (0.05128205128205128, 'You, Me and Dupree')],
+    'Just My Luck': [(0.2222222222222222, 'Lady in the Water'), (0.18181818181818182, 'You, Me and Dupree'), (0.15384615384615385, 'The Night Listener'), (0.10526315789473684, 'Snakes on a Plane'), (0.06451612903225806, 'Superman Returns')],
+    'Superman Returns': [(0.16666666666666666, 'Snakes on a Plane'), (0.10256410256410256, 'The Night Listener'), (0.09090909090909091, 'Lady in the Water'), (0.06451612903225806, 'Just My Luck'), (0.05333333333333334, 'You, Me and Dupree')],
+    'You, Me and Dupree': [(0.4, 'Lady in the Water'), (0.18181818181818182, 'Just My Luck'), (0.14814814814814814, 'The Night Listener'), (0.05333333333333334, 'Superman Returns'), (0.05128205128205128, 'Snakes on a Plane')],
+    'The Night Listener': [(0.2857142857142857, 'Lady in the Water'), (0.18181818181818182, 'Snakes on a Plane'), (0.15384615384615385, 'Just My Luck'), (0.14814814814814814, 'You, Me and Dupree'), (0.10256410256410256, 'Superman Returns')]
+}
+"""
+
+'''
+Для каждого фильма, который я не смотрел, имеется столбец, где показано, насколько он похож на виденные мной фильмы. Например, коэффициент подобия между фильмами «Superman» и «The Night Listener» равен 0,103. В столбцах с названиями, начинающимися с О.x, показана моя оценка, умноженная на коэффициент подобия; поскольку я поставил фильму «Superman» оценку 4,0, то, умножая число на пересечении строки «Superman» и столбца «Night» на 4,0, по-
+лучаем: 4,0 × 0,103 = 0,412. В строке «Итого» просуммированы коэффициенты подобия и значения в столбцах «О.x» для каждого фильма. Чтобы предсказать мою оценку фильма, достаточно разделить итог для колонки «О.x» на суммарный коэффициент подобия. Так, для фильма «The Night Listener» прогноз моей оценки равен 1,378/0,433 = 3,183.
+'''
+def getRecommendedItems(prefs, itemMatch, user):
+    userRatings = prefs[user]
+    scores = {}
+    totalSim = {}
+
+    # Цикл по образцам, оцененным данным пользователем
+    for (item, rating) in userRatings.items():
+        # Цикл по образцам, похожим на данный
+        for (similarity, item2) in itemMatch[item]:
+            # Пропускаем, если пользователь уже оценивал данный образец
+            if item2 in userRatings: continue
+            # Взвешенная суммы оценок, умноженных на коэффициент подобия
+            scores.setdefault(item2, 0)
+            scores[item2] += similarity * rating
+            # Сумма всех коэффициентов подобия
+            totalSim.setdefault(item2, 0)
+            totalSim[item2] += similarity
+
+    # Делим каждую итоговую оценку на взвешенную сумму, чтобы вычислить
+    # среднее
+    rankings=[(score / totalSim[item], item) for item, score in scores.items( )]
+    # Возвращает список rankings, отсортированный по убыванию
+    rankings.sort()
+    rankings.reverse()
+
+    return rankings
+
+recBySim = getRecommendedItems(critics, simItms, 'Toby')
+
+print('recBySim', recBySim)
+
+'''
+[
+    (3.182634730538922, 'The Night Listener'), 
+    (2.5983318700614575, 'Just My Luck'), 
+    (2.4730878186968837, 'Lady in the Water')
+]
+'''
