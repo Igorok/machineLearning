@@ -11,7 +11,8 @@ setup(
         'numpy',
         'scipy',
         'matplotlib',
-        'feedparser'
+        'feedparser',
+        'Pillow'
         # 'ipython',
         # 'jupyter',
         # 'pandas',

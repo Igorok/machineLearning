@@ -1,3 +1,11 @@
+'''
+feedlist.txt - this is file with list of links to blogs
+getwords - function to remove html tags
+getwordcounts - function to calculate count of words in blog
+after calculation, we save words that found in blogs from 10% till 50% 
+blogdata.txt - file to save calculated data
+'''
+
 import feedparser
 import re
 
@@ -22,7 +30,7 @@ def getwordcounts(url):
         # Сформировать список слов
         words = getwords(e.title + ' ' + summary)
         for word in words:
-            wc.setdefault(word,0)
+            wc.setdefault(word, 0)
             wc[word] += 1
 
     title = None
