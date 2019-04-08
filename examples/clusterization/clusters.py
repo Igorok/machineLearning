@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 '''
 Кластерный анализ - многомерная статистическая процедура, выполняющая сбор данных, содержащих информацию о выборке объектов, и затем упорядочивающая объекты в сравнительно однородные группы.
 Цели кластеризации:
@@ -188,8 +189,7 @@ def drawnode(draw,clust,x,y,scaling,labels):
 
 '''
 Часто бывает необходимо выполнить кластеризацию одновременно по строкам и столбцам. В маркетинговых исследованиях интересно сгруппировать людей с целью выявления общих демографических признаков или предпочитаемых товаров, а быть может, для того чтобы выяснить, на каких полках размещены товары, которые обычно покупают вместе. В наборе данных о блогах столбцы представляют слова, и можно поинтересоваться, какие слова часто употребляют вместе.
-Простейший способ решить эту задачу с помощью уже написанных функций – повернуть весь набор данных, так чтобы столбцы (слова)
-стали строками. Тогда списки чисел в каждой строке покажут, сколько раз данное слово встречалось в каждом блоге.
+Простейший способ решить эту задачу с помощью уже написанных функций – повернуть весь набор данных, так чтобы столбцы (слова) стали строками. Тогда списки чисел в каждой строке покажут, сколько раз данное слово встречалось в каждом блоге.
 '''
 def rotatematrix(data):
     newdata=[]
@@ -198,18 +198,23 @@ def rotatematrix(data):
         newdata.append(newrow)
     return newdata
 
-blognames, words, data = readfile('blogdata.txt')
-data = rotatematrix(data)
-wordclust = hcluster(data)
-drawdendrogram(wordclust, labels=words, jpeg='wordclust.jpg')
+# blognames, words, data = readfile('blogdata.txt')
+# data = rotatematrix(data)
+# wordclust = hcluster(data)
+# drawdendrogram(wordclust, labels=words, jpeg='wordclust.jpg')
 
 
-
+'''
+Кластеризация методом K-средних начинается с выбора k случайно расположенных центроидов (точек, представляющих центр кластера). Каждому элементу назначается ближайший центроид. После того как назначение выполнено, каждый центроид перемещается в точку, рассчитываемую как среднее по всем приписанным к нему элементам. Затем назначение выполняется снова. Эта процедура повторяется до тех пор, пока назначения не прекратят изменяться. На рис. 3.5 показано, как развивается процесс для пяти элементов и двух кластеров.
+'''
 import random
-def kcluster(rows,distance=pearson,k=4):
+def kcluster(rows, distance=pearson, k=4):
     # Determine the minimum and maximum values for each point
-    ranges=[(min([row[i] for row in rows]),max([row[i] for row in rows]))
-    for i in range(len(rows[0]))]
+    ranges=[
+        (min([row[i] for row in rows]), max([row[i] for row in rows]))
+        for i in range(len(rows[0]))
+    ]
+
 
     # Create k randomly placed centroids
     clusters=[[random.random()*(ranges[i][1]-ranges[i][0])+ranges[i][0]
@@ -245,6 +250,15 @@ def kcluster(rows,distance=pearson,k=4):
                 clusters[i]=avgs
 
     return bestmatches
+
+blognames, words, data = readfile('blogdata.txt')
+kclust = kcluster(data)
+
+# for k in kclust:
+#     print('cluster', k)
+#     for r in k:
+#         print(blognames[r])
+
 
 def tanamoto(v1,v2):
     c1,c2,shr=0,0,0
