@@ -208,56 +208,73 @@ def rotatematrix(data):
 Кластеризация методом K-средних начинается с выбора k случайно расположенных центроидов (точек, представляющих центр кластера). Каждому элементу назначается ближайший центроид. После того как назначение выполнено, каждый центроид перемещается в точку, рассчитываемую как среднее по всем приписанным к нему элементам. Затем назначение выполняется снова. Эта процедура повторяется до тех пор, пока назначения не прекратят изменяться. На рис. 3.5 показано, как развивается процесс для пяти элементов и двух кластеров.
 '''
 import random
-def kcluster(rows, distance=pearson, k=4):
+def kcluster(rows, distance = pearson, k = 4):
     # Determine the minimum and maximum values for each point
+    # max and min values for every word, from all blogs
     ranges=[
         (min([row[i] for row in rows]), max([row[i] for row in rows]))
         for i in range(len(rows[0]))
     ]
 
-
     # Create k randomly placed centroids
-    clusters=[[random.random()*(ranges[i][1]-ranges[i][0])+ranges[i][0]
-    for i in range(len(rows[0]))] for j in range(k)]
+    clusters= [
+        [
+            random.random() * (ranges[i][1] - ranges[i][0]) + ranges[i][0]
+            for i in range(len(rows[0]))
+        ] for j in range(k)
+    ]
 
-    lastmatches=None
+    lastmatches = None
     for t in range(100):
         print('Iteration %d' % t)
         bestmatches=[[] for i in range(k)]
 
         # Find which centroid is the closest for each row
+        # every blog
         for j in range(len(rows)):
             row = rows[j]
             bestmatch = 0
+            # for every cluster
             for i in range(k):
+                # distance between current cluster and current blog
                 d = distance(clusters[i], row)
-                if d < distance(clusters[bestmatch], row): bestmatch=i
+                # if distance is less that best distance, set this distance as best
+                if d < distance(clusters[bestmatch], row): bestmatch = i
+            # push the blog to most similar cluster
             bestmatches[bestmatch].append(j)
 
         # If the results are the same as last time, this is complete
-        if bestmatches==lastmatches: break
-        lastmatches=bestmatches
+        if bestmatches == lastmatches: break
+        lastmatches = bestmatches
 
         # Move the centroids to the average of their members
+        # every cluster
         for i in range(k):
-            avgs=[0.0]*len(rows[0])
-            if len(bestmatches[i])>0:
+            # list of zeros for every word in cluster
+            avgs = [0.0] * len(rows[0])
+            # most similar blogs for cluster
+            if len(bestmatches[i]) > 0:
+                # every blog from similars
                 for rowid in bestmatches[i]:
+                    # every word from blog
                     for m in range(len(rows[rowid])):
-                        avgs[m]+=rows[rowid][m]
+                        # sum of words
+                        avgs[m] += rows[rowid][m]
+                # every word in cluster
                 for j in range(len(avgs)):
-                    avgs[j]/=len(bestmatches[i])
-                clusters[i]=avgs
+                    # every word in cluster will equal average value from all best blogs
+                    avgs[j] /= len(bestmatches[i])
+                clusters[i] = avgs
 
     return bestmatches
 
 blognames, words, data = readfile('blogdata.txt')
 kclust = kcluster(data)
 
-# for k in kclust:
-#     print('cluster', k)
-#     for r in k:
-#         print(blognames[r])
+for k in kclust:
+    print('cluster', k)
+    for r in k:
+        print(blognames[r])
 
 
 def tanamoto(v1,v2):
