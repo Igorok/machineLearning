@@ -276,77 +276,98 @@ for k in kclust:
     for r in k:
         print(blognames[r])
 
-
-def tanamoto(v1,v2):
-    c1,c2,shr=0,0,0
+'''
+Для набора данных о блогах, где значениями являются счетчики слов, коэффициент корреляции Пирсона работает неплохо. Но в данном случае у нас есть лишь единицы и нули, представляющие соответственно наличие и отсутствие, и было бы полезнее определить некую меру перекрытия между людьми, желающими иметь два предмета. Такая мера существует и называется коэффициентом Танимото; это отношение мощности пересечения множеств (элементов, принадлежащих обоим множествам) к мощности их объединения (элементов, принадлежащих хотя бы одному множеству).
+'''
+def tanamoto(v1, v2):
+    c1, c2, shr = 0, 0, 0
 
     for i in range(len(v1)):
-        if v1[i]!=0: c1+=1 # in v1
-        if v2[i]!=0: c2+=1 # in v2
-        if v1[i]!=0 and v2[i]!=0: shr+=1 # in both
+        if v1[i] != 0: c1+=1 # in v1
+        if v2[i] != 0: c2+=1 # in v2
+        if v1[i] != 0 and v2[i] != 0: shr += 1 # in both
 
-    return 1.0-(float(shr)/(c1+c2-shr))
+    return 1.0 - (float(shr) / (c1 + c2 - shr))
 
-def scaledown(data,distance=pearson,rate=0.01):
-    n=len(data)
+
+'''
+Чтобы понять, как соотносятся различные предметы, было бы полезно видеть их на странице и оценивать степень
+схожести по близости. В этом разделе мы ознакомимся с методом многомерного шкалирования, позволяющим найти двумерное представление набора данных. Этот алгоритм принимает на входе различие между каждой парой предметов и пытается нарисовать диаграмму так, чтобы расстояния между точками, соответствующими предметам, отражали степень их различия. Для этого сначала вычисляются желаемые расстояния между всеми предметами. В случае набора данных
+о блогах для сравнения предметов применялся коэффициент корреляции Пирсона.
+
+Затем все предметы (в данном случае блоги) случайным образом размещаются на двумерной диаграмме. Вычисляются попарные евклидовы расстояния между всеми текущими положениями предметов.
+
+Для каждой пары предметов желаемое расстояние сравнивается с текущим и вычисляется расхождение. Каждый предмет приближается или отодвигается от своего соседа пропорционально расхождению между ними. 
+
+Каждый узел перемещается под воздействием всех остальных узлов, которые притягивают или отталкивают его. После каждого такого перемещения разница между текущими и желаемыми расстояниями немного уменьшается. Эта процедура повторяется многократно и прекращается, когда общее расхождение не удается уменьшить за счет перемещения предметов. Реализующая ее функция принимает вектор данных и возвращает массив с двумя столбцами, содержащими координаты X и Y предметов на двумерной диаграмме.
+
+'''
+def scaledown(data, distance = pearson, rate = 0.01):
+    n = len(data)
 
     # The real distances between every pair of items
-    realdist=[[distance(data[i],data[j]) for j in range(n)]
-                for i in range(0,n)]
+    realdist = [
+        [distance(data[i], data[j]) for j in range(n)]
+        for i in range(0, n)
+    ]
 
     # Randomly initialize the starting points of the locations in 2D
     loc=[[random.random(),random.random()] for i in range(n)]
     fakedist=[[0.0 for j in range(n)] for i in range(n)]
 
-    lasterror=None
-    for m in range(0,1000):
+    lasterror = None
+    for m in range(0, 1000):
         # Find projected distances
         for i in range(n):
             for j in range(n):
-                fakedist[i][j]=sqrt(sum([pow(loc[i][x]-loc[j][x],2)
+                fakedist[i][j] = sqrt(sum([pow(loc[i][x] - loc[j][x], 2)
                                         for x in range(len(loc[i]))]))
 
         # Move points
-        grad=[[0.0,0.0] for i in range(n)]
+        grad=[[0.0, 0.0] for i in range(n)]
 
-        totalerror=0
+        totalerror = 0
         for k in range(n):
             for j in range(n):
-                if j==k: continue
+                if j == k: continue
                 # The error is percent difference between the distances
-                errorterm=(fakedist[j][k]-realdist[j][k])/realdist[j][k]
+                errorterm = (fakedist[j][k] - realdist[j][k]) / realdist[j][k]
 
                 # Each point needs to be moved away from or towards the other
                 # point in proportion to how much error it has
-                grad[k][0]+=((loc[k][0]-loc[j][0])/fakedist[j][k])*errorterm
-                grad[k][1]+=((loc[k][1]-loc[j][1])/fakedist[j][k])*errorterm
+                grad[k][0] += ((loc[k][0] - loc[j][0]) / fakedist[j][k]) * errorterm
+                grad[k][1] += ((loc[k][1] - loc[j][1]) / fakedist[j][k]) * errorterm
 
                 # Keep track of the total error
-                totalerror+=abs(errorterm)
-        print(totalerror)
+                totalerror += abs(errorterm)
+
+        print('totalerror', totalerror)
 
         # If the answer got worse by moving the points, we are done
-        if lasterror and lasterror<totalerror: break
-        lasterror=totalerror
+        if lasterror and lasterror < totalerror: break
+        lasterror = totalerror
 
         # Move each of the points by the learning rate times the gradient
         for k in range(n):
-            loc[k][0]-=rate*grad[k][0]
-            loc[k][1]-=rate*grad[k][1]
+            loc[k][0] -= rate * grad[k][0]
+            loc[k][1] -= rate * grad[k][1]
 
     return loc
 
-def draw2d(data,labels,jpeg='mds2d.jpg'):
-    img=Image.new('RGB',(2000,2000),(255,255,255))
-    draw=ImageDraw.Draw(img)
+def draw2d(data, labels, jpeg = 'mds2d.jpg'):
+    img = Image.new('RGB',(2000,2000),(255,255,255))
+    draw = ImageDraw.Draw(img)
     for i in range(len(data)):
-        x=(data[i][0] + 0.5)*1000
-        y=(data[i][1] + 0.5)*1000
-        draw.text((x, y), labels[i], (0,0,0))
-    img.save(jpeg,'JPEG')
+        x=(data[i][0] + 0.5) * 1000
+        y=(data[i][1] + 0.5) * 1000
+        draw.text((x, y), labels[i], (0, 0, 0))
+    img.save(jpeg, 'JPEG')
 
 
 
+blognames, words, data = readfile('blogdata.txt')
+coords = scaledown(data)
+draw2d(coords, blognames, jpeg = 'blogs2d.jpg')
 
 
 # blognames, words, data = readfile('blogdata.txt')
