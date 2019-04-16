@@ -12,7 +12,8 @@ setup(
         'scipy',
         'matplotlib',
         'feedparser',
-        'Pillow'
+        'Pillow',
+        'bs4'
         # 'ipython',
         # 'jupyter',
         # 'pandas',
