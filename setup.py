@@ -13,7 +13,8 @@ setup(
         'matplotlib',
         'feedparser',
         'Pillow',
-        'bs4'
+        'bs4',
+        
         # 'ipython',
         # 'jupyter',
         # 'pandas',

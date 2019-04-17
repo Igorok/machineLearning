@@ -3,9 +3,13 @@
 from urllib.request import urlopen
 from urllib.request import urljoin
 from bs4 import BeautifulSoup
+import sqlite3
+
+# import nn
+# mynet=nn.searchnet('nn.db')
 
 # Создать список игнорируемых слов
-ignorewords=set(['the','of','to','and','a','in','is','it'])
+ignorewords={'the':1,'of':1,'to':1,'and':1,'a':1,'in':1,'is':1,'it':1}
 
 wikiList = [
     'https://en.wikipedia.org/wiki/Perl',
@@ -27,16 +31,30 @@ wikiList = [
     'https://en.wikipedia.org/wiki/Flask_(web_framework)'
 ]
 
+'''
+
+Первый шаг при создании поисковой машины – разработать методику сбора документов. Иногда для этого применяется ползание (начинаем с небольшого набора документов и переходим по имеющимся в них ссылкам).
+
+Ну и последний шаг – это, конечно, возврат ранжированного списка документов в ответ на запрос. Имея индекс, найти документы, содержащие заданные слова, сравнительно несложно; хитрость заключается в том, как отсортировать результаты.
+
+Для проработки примеров из этой главы нам понадобится создать на языке Python модуль searchengine , в котором будет два класса: один – для ползания по сети и создания базы данных, а второй – для выполнения полнотекстового поиска в этой базе в ответ на запрос.
+
+Библиотека urllib2, входящая в дистрибутив Python, предназначена для скачивания страниц. От вас требуется только указать URL. В этом разделе мы воспользуемся ею, чтобы скачать страницы для последующего индексирования.
+
+С помощью библиотек urllib2 и Beautiful Soup можно построить паука, который принимает на входе список подлежащих индексированию URL и, переползая по ссылкам, находит другие страницы.
+
+'''
 class crawler:
     # Инициализировать паука, передав ему имя базы данных
-    def __init__(self,dbname):
-        pass
+    def __init__(self, dbname):
+        self.con = sqlite3.connect(dbname)
 
     def __del__(self):
-        pass
+        self.con.close()
 
     def dbcommit(self):
-        pass
+        self.con.commit()
+
 
     # Вспомогательная функция для получения идентификатора и
     # добавления записи, если такой еще нет
@@ -64,9 +82,9 @@ class crawler:
         print('addlinkref', urlFrom, urlTo, linkText)
         pass
 
-    # Начиная с заданного списка страниц, выполняет поиск в ширину
-    # до заданной глубины, индексируя все встречающиеся по пути
-    # страницы
+    '''
+    Начиная с заданного списка страниц, выполняет поиск в ширину до заданной глубины, индексируя все встречающиеся по пути страницы
+    '''
     def crawl(self, pages, depth = 2):
         for i in range(depth):
             newpages = {}
@@ -97,12 +115,29 @@ class crawler:
 
         pages = newpages
       
-    # Создание таблиц в базе данных
+    '''
+    В каждой таблице SQLite по умолчанию имеется поле rowid , поэтому явно задавать ключевые поля необязательно.
+    '''
     def createindextables(self):
-        pass
+        self.con.execute('create table urllist(url)')
+        self.con.execute('create table wordlist(word)')
+        self.con.execute('create table wordlocation(urlid,wordid,location)')
+        self.con.execute('create table link(fromid integer,toid integer)')
+        self.con.execute('create table linkwords(wordid,linkid)')
+        self.con.execute('create index wordidx on wordlist(word)')
+        self.con.execute('create index urlidx on urllist(url)')
+        self.con.execute('create index wordurlidx on wordlocation(wordid)')
+        self.con.execute('create index urltoidx on link(toid)')
+        self.con.execute('create index urlfromidx on link(fromid)')
+        self.dbcommit()
 
 
 
-pagelist = ['https://en.wikipedia.org/wiki/Perl']
-crawler = crawler('')
-crawler.crawl(pagelist)
+# pagelist = ['https://en.wikipedia.org/wiki/Perl']
+# crawler = crawler('')
+# crawler.crawl(pagelist)
+
+
+
+crawler = crawler('searchindex.db')
+crawler.createindextables()
