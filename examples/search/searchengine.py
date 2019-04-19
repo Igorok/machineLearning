@@ -58,32 +58,90 @@ class crawler:
 
     # Вспомогательная функция для получения идентификатора и
     # добавления записи, если такой еще нет
-    def getentryid(self, table, field, value, createnew = True):
-        return None
+    def getentryid(self,table,field,value,createnew=True):
+        cur=self.con.execute("select rowid from %s where %s='%s'" % (table, field, value))
+        res=cur.fetchone()
 
-    # Индексирование одной страницы
+        if res == None:
+            cur = self.con.execute("insert into %s (%s) values ('%s')" % (table, field, value))
+            return cur.lastrowid
+        else:
+            return res[0]
+
+
+    '''
+    Индексирование одной страницы - вызывает две функции, чтобы получить список слов на странице. Затем эта страница и все найденные на ней слова добавляются в индекс и создаются ссылки между словами и их вхождениями в документ. В нашем примере адресом вхождения будет считаться номер слова в списке слов.
+    '''
     def addtoindex(self, url, soup):
-        print('Индексируется %s' % url)
+        if self.isindexed(url): return
+        print 'Indexing ' + url
 
-    # Извлечение текста из HTML-страницы (без тегов)
-    def gettextonly(self, soup):
-        return None
+        # Get the individual words
+        text = self.gettextonly(soup)
+        words = self.separatewords(text)
 
-    # Разбиение текста на слова
+        # Get the URL id
+        urlid = self.getentryid('urllist', 'url', url)
+
+        # Link each word to this url
+        for i in range(len(words)):
+            word = words[i]
+            if word in ignorewords: continue
+            wordid = self.getentryid('wordlist', 'word', word)
+            self.con.execute("insert into wordlocation(urlid, wordid, location) values (%d, %d, %d)" % (urlid, wordid, i))
+
+
+
+
+    '''
+    Эта функция возвращает длинную строку, содержащую весь имеющийся на странице текст. Для этого она рекурсивно обходит объектную модель HTML-документа, отыскивая текстовые узлы. Текст, находящийся в различных разделах, помещается в отдельные абзацы.
+    '''
+    def gettextonly(self,soup):
+        v = soup.string
+        if v == None:
+            c = soup.contents
+            resulttext = ''
+            for t in c:
+                subtext = self.gettextonly(t)
+                resulttext += subtext + '\n'
+            return resulttext
+        else:
+            return v.strip()
+
+    '''
+    функция которая разбивает строку на отдельные слова, чтобы их можно было добавить в индекс. Сделать это правильно не так просто, как может показаться, и существует немало работ о том, как улучшить эту методику.
+    '''
     def separatewords(self, text):
-        return None
+        splitter = re.compile('\\W*')
+        return [s.lower() for s in splitter.split(text) if s != '']
 
-    # Возвращает true, если данный URL уже проиндексирован
-    def isindexed(self,url):
+    '''
+    определяет, есть ли указанная страница в базе данных и, если да, ассоциированы ли с ней какие-нибудь слова:
+    '''
+    def isindexed(self, url):
+        u = self.con.execute("select rowid from urllist where url='%s'" % url).fetchone( )
+        if u != None:
+            # Проверяем, что страница посещалась
+            v = self.con.execute('select * from wordlocation where urlid=%d' % u[0]).fetchone( )
+            if v != None: return True
         return False
 
     # Добавление ссылки с одной страницы на другую
     def addlinkref(self, urlFrom, urlTo, linkText):
-        print('addlinkref', urlFrom, urlTo, linkText)
-        pass
+        words = self.separateWords(linkText)
+        fromid = self.getentryid('urllist', 'url', urlFrom)
+        toid = self.getentryid('urllist', 'url', urlTo)
+        if fromid == toid: return
+        cur = self.con.execute("insert into link(fromid,toid) values (%d,%d)" % (fromid,toid))
+        linkid = cur.lastrowid
+        for word in words:
+            if word in ignorewords: continue
+            wordid = self.getentryid('wordlist', 'word', word)
+            self.con.execute("insert into linkwords(linkid, wordid) values (%d, %d)" % (linkid, wordid))
+
 
     '''
-    Начиная с заданного списка страниц, выполняет поиск в ширину до заданной глубины, индексируя все встречающиеся по пути страницы
+    Эта функция в цикле обходит список страниц, вызывая для каждой функцию addtoindex. Далее с помощью библиотеки Beautiful Soup она получает все ссылки на данной странице и добавляет их URL в список newpages . В конце цикла newpages присваивается pages , и процесс повторяется.
     '''
     def crawl(self, pages, depth = 2):
         for i in range(depth):
@@ -94,10 +152,11 @@ class crawler:
                 except:
                     print("Could not open %s" % page)
                     continue
+
                 try:
                     soup = BeautifulSoup(c.read())
                     self.addtoindex(page, soup)
-            
+
                     links = soup('a')
                     for link in links:
                         if ('href' in dict(link.attrs)):
@@ -108,15 +167,15 @@ class crawler:
                                 newpages[url] = 1
                             linkText = self.gettextonly(link)
                             self.addlinkref(page, url, linkText)
-            
+
                     self.dbcommit()
                 except:
                     print("Could not parse page %s" % page)
 
         pages = newpages
-      
+
     '''
-    В каждой таблице SQLite по умолчанию имеется поле rowid , поэтому явно задавать ключевые поля необязательно.
+    В каждой таблице SQLite по умолчанию имеется поле rowid , поэтому явно задавать ключевые поля необязательно. Эта функция создает все нужные нам таблицы, а также ряд индексов, ускоряющих поиск.
     '''
     def createindextables(self):
         self.con.execute('create table urllist(url)')
@@ -133,7 +192,7 @@ class crawler:
 
 
 
-# pagelist = ['https://en.wikipedia.org/wiki/Perl']
+# pagelist = ['https://en.wikipedia.org/wiki/PhP']
 # crawler = crawler('')
 # crawler.crawl(pagelist)
 
