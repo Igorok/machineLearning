@@ -4,6 +4,8 @@ from urllib.request import urlopen
 from urllib.request import urljoin
 from bs4 import BeautifulSoup
 import sqlite3
+from pathlib import Path
+import re
 
 # import nn
 # mynet=nn.searchnet('nn.db')
@@ -12,6 +14,7 @@ import sqlite3
 ignorewords={'the':1,'of':1,'to':1,'and':1,'a':1,'in':1,'is':1,'it':1}
 
 wikiList = [
+    'https://en.wikipedia.org/wiki/PHP',
     'https://en.wikipedia.org/wiki/Perl',
     'https://en.wikipedia.org/wiki/Modular_programming',
     'https://en.wikipedia.org/wiki/Free_software',
@@ -19,7 +22,6 @@ wikiList = [
     'https://en.wikipedia.org/wiki/V6_(Perl)',
     'https://en.wikipedia.org/wiki/Perl_Foundation',
     'https://en.wikipedia.org/wiki/Subroutine',
-    'https://en.wikipedia.org/wiki/PhP',
     'https://en.wikipedia.org/wiki/Python_(programming_language)',
     'https://en.wikipedia.org/wiki/JavaScript',
     'https://en.wikipedia.org/wiki/Android_(operating_system)',
@@ -58,7 +60,7 @@ class crawler:
 
     # Вспомогательная функция для получения идентификатора и
     # добавления записи, если такой еще нет
-    def getentryid(self,table,field,value,createnew=True):
+    def getentryid(self, table, field, value, createnew = True):
         cur=self.con.execute("select rowid from %s where %s='%s'" % (table, field, value))
         res=cur.fetchone()
 
@@ -74,7 +76,7 @@ class crawler:
     '''
     def addtoindex(self, url, soup):
         if self.isindexed(url): return
-        print 'Indexing ' + url
+        print('Indexing ' + url)
 
         # Get the individual words
         text = self.gettextonly(soup)
@@ -90,13 +92,10 @@ class crawler:
             wordid = self.getentryid('wordlist', 'word', word)
             self.con.execute("insert into wordlocation(urlid, wordid, location) values (%d, %d, %d)" % (urlid, wordid, i))
 
-
-
-
     '''
     Эта функция возвращает длинную строку, содержащую весь имеющийся на странице текст. Для этого она рекурсивно обходит объектную модель HTML-документа, отыскивая текстовые узлы. Текст, находящийся в различных разделах, помещается в отдельные абзацы.
     '''
-    def gettextonly(self,soup):
+    def gettextonly(self, soup):
         v = soup.string
         if v == None:
             c = soup.contents
@@ -128,7 +127,10 @@ class crawler:
 
     # Добавление ссылки с одной страницы на другую
     def addlinkref(self, urlFrom, urlTo, linkText):
-        words = self.separateWords(linkText)
+        if linkText is None or linkText == '':
+            return
+
+        words = self.separatewords(linkText)
         fromid = self.getentryid('urllist', 'url', urlFrom)
         toid = self.getentryid('urllist', 'url', urlTo)
         if fromid == toid: return
@@ -146,15 +148,29 @@ class crawler:
     def crawl(self, pages, depth = 2):
         for i in range(depth):
             newpages = {}
-            for page in pages:
-                try:
-                    c = urlopen(page)
-                except:
-                    print("Could not open %s" % page)
-                    continue
+            for i in range(len(pages)):
+                page = pages[i]
+                html = None
+                fPath = './pages/' + str(i) + '.txt'
+
+                if Path(fPath).is_file():
+                    f = open(fPath, 'r')
+                    html = f.read()
+
+                if html is None:
+                    try:
+                        c = urlopen(page)
+                        html = c.read().decode('utf-8')
+
+                        f = open(fPath, 'w')
+                        f.write(html)
+                        f.close()
+                    except Exception as e:
+                        print("Could not open %s" % page, str(e))
+                        continue
 
                 try:
-                    soup = BeautifulSoup(c.read())
+                    soup = BeautifulSoup(html, 'html.parser')
                     self.addtoindex(page, soup)
 
                     links = soup('a')
@@ -169,10 +185,14 @@ class crawler:
                             self.addlinkref(page, url, linkText)
 
                     self.dbcommit()
-                except:
-                    print("Could not parse page %s" % page)
+                except Exception as e:
+                    print(e)
+                    print("Could not parse page %s" % page, str(e))
 
         pages = newpages
+
+
+
 
     '''
     В каждой таблице SQLite по умолчанию имеется поле rowid , поэтому явно задавать ключевые поля необязательно. Эта функция создает все нужные нам таблицы, а также ряд индексов, ускоряющих поиск.
@@ -191,12 +211,85 @@ class crawler:
         self.dbcommit()
 
 
+# crawler = crawler('searchindex.db')
+# crawler.createindextables()
 
-# pagelist = ['https://en.wikipedia.org/wiki/PhP']
-# crawler = crawler('')
-# crawler.crawl(pagelist)
+# crawler = crawler('searchindex.db')
+# crawler.crawl(wikiList)
 
 
 
-crawler = crawler('searchindex.db')
-crawler.createindextables()
+class searcher:
+    def __init__(self,dbname):
+        self.con = sqlite3.connect(dbname)
+
+    def __del__(self):
+        self.con.close()
+
+    '''
+    Таблица wordlocation обеспечивает простой способ связать слова с документами, так что мы можем легко найти, какие страницы содержат данное слово. Однако поисковая машина была бы довольно слабой, если бы не позволяла задавать запросы с несколькими словами. Чтобы исправить это упущение, нам понадобится функция, которая принимает строку запроса, разбивает ее на слова и строит SQL-запрос для поиска URL тех документов, в которые входят все указанные слова.
+
+    На первый взгляд функция довольно сложна, но, по существу, она просто создает по одной ссылке на таблицу wordlocation для каждого слова и выполняет соединение таблиц по идентификаторам URL
+
+    select w0.urlid, w0.location, w1.location
+    from wordlocation w0, wordlocation w1
+    where w0.urlid = w1.urlid
+    and w0.wordid = 10
+    and w1.wordid = 17
+    '''
+    def getmatchrows(self, q):
+        # Strings to build the query
+        fieldlist = 'w0.urlid'
+        tablelist = ''
+        clauselist = ''
+        wordids = []
+
+        # Split the words by spaces
+        words = q.split(' ')
+        tablenumber = 0
+
+        for word in words:
+            # Get the word ID
+            wordrow = self.con.execute("select rowid from wordlist where word='%s'" % word).fetchone()
+            if wordrow != None:
+                wordid = wordrow[0]
+                wordids.append(wordid)
+
+                # we try to find words in the table wordlocation and join these by urlid
+                if tablenumber > 0:
+                    # wordlocation w0,
+                    tablelist += ','
+                    # w0.wordid=123 and w0.urlid=w1.urlid and
+                    clauselist += ' and '
+                    clauselist += 'w%d.urlid=w%d.urlid and ' % (tablenumber - 1, tablenumber)
+                
+                # w0.urlid, w0.location
+                fieldlist += ',w%d.location' % tablenumber
+                # wordlocation w0
+                tablelist += 'wordlocation w%d' % tablenumber
+                # w0.wordid=123
+                clauselist += 'w%d.wordid=%d' % (tablenumber, wordid)
+                tablenumber += 1
+        
+
+        # fieldlist += ',url'
+        # tablelist += ' left join urllist on w0.urlid = urllist.rowid'
+
+        # Create the query from the separate parts
+        fullquery = 'select %s from %s where %s' % (fieldlist, tablelist, clauselist)
+        print(fullquery)
+
+        cur = self.con.execute(fullquery)
+        rows = [row for row in cur]
+
+        return rows, wordids
+
+
+searcher = searcher('searchindex.db')
+rows, wordids = searcher.getmatchrows('php js')
+
+print('rows', rows, len(rows))
+
+
+# for row in rows:
+#     print('row', row)
