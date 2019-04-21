@@ -285,11 +285,84 @@ class searcher:
         return rows, wordids
 
 
-searcher = searcher('searchindex.db')
-rows, wordids = searcher.getmatchrows('php js')
+# searcher = searcher('searchindex.db')
+# rows, wordids = searcher.getmatchrows('java script react')
+# print('rows', rows, len(rows))
 
-print('rows', rows, len(rows))
+
+    '''
+    Нам понадобится новый метод, который принимает на входе запрос, получает строки, помещает их в словарь и отображает в виде отформатированного списка.
+    '''
+    def getscoredlist(self, rows, wordids):
+        totalscores = dict([(row[0], 0) for row in rows])
+        # This is where we'll put our scoring functions
+        weights = [
+            (1.0, self.frequencyscore(rows)),
+            (1.0, self.locationscore(rows)),
+
+        #     (1.0, self.pagerankscore(rows)),
+        #     (1.0, self.linktextscore(rows, wordids)),
+        #     (5.0, self.nnscore(rows, wordids))
+        ]
+
+        for (weight, scores) in weights:
+            for url in totalscores:
+                totalscores[url] += weight * scores[url]
+
+        return totalscores
+
+    def geturlname(self, id):
+        return self.con.execute("select url from urllist where rowid=%d" % id).fetchone()[0]
+
+    def query(self, q):
+        #  w0.urlid, w0.location, w1.location, w2.location, w2.location ...
+        rows, wordids = self.getmatchrows(q)
+        # sum of weights for every url
+        scores = self.getscoredlist(rows, wordids)
+        rankedscores = [(score, url) for (url, score) in scores.items()]
+        rankedscores.sort()
+        rankedscores.reverse()
+        for (score, urlid) in rankedscores[0:10]:
+            print('%f\t%s' % (score, self.geturlname(urlid)))
+
+        return wordids, [r[1] for r in rankedscores[0:10]]
+
+    '''
+    Все рассматриваемые ниже функции ранжирования возвращают словарь, в котором ключом является идентификатор URL, а значением – числовой ранг. Иногда лучшим считается больший ранг, иногда – меньший. Чтобы сравнивать результаты, получаемые разными методами, необходимо как-то нормализовать их, то есть привести к одному и тому же диапазону и направлению.
+    Функция нормализации принимает на входе словарь идентификаторов и рангов и возвращает новый словарь, в котором идентификаторы те же самые, а ранг находится в диапазоне от 0 до 1.
+    '''
+    def normalizescores(self, scores, smallIsBetter = 0):
+        vsmall = 0.00001 # Avoid division by zero errors
+        if smallIsBetter:
+            minscore = min(scores.values())
+            return dict([(u, float(minscore) / max(vsmall, l)) for (u, l) in scores.items()])
+        else:
+            maxscore = max(scores.values())
+            if maxscore == 0: maxscore = vsmall
+            return dict([(u, float(c) / maxscore) for (u, c) in scores.items()])
+
+    '''
+    Метрика, основанная на частоте слов, ранжирует страницу исходя из того, сколько раз в ней встречаются слова, упомянутые в запросе. wordlocation (urlid, wordid, location) - содержит id ссылки, id слова и номер слова в тексте. Сумма результатов для каждой ссылки будет являться суммой обнаруженных слов на странице
+    '''
+    def frequencyscore(self, rows):
+        counts = dict([(row[0], 0) for row in rows])
+        for row in rows: counts[row[0]] += 1
+        return self.normalizescores(counts)
+
+    '''
+    Еще одна простая метрика для определения релевантности страницы запросу – расположение поисковых слов на странице. Обычно, если страница релевантна поисковому слову, то это слово расположено близко к началу страницы, быть может, даже находится в заголовке.
+    Первый элемент в каждой строке row – это идентификатор URL, а за ним следуют адреса вхождений всех поисковых слов. Каждый идентификатор может встречаться несколько раз, по одному для каждой комбинации вхождений. Для каждой строки этот метод суммирует адреса вхождений всех слов и сравнивает результат с наилучшим, вычисленным для данного URL к текущему моменту. Затем окончательные результаты передаются функции normalize . Заметьте, параметр smallIsBetter означает, что ранг 1,0 будет присвоен URL с наименьшей суммой адресов вхождений.
+    '''
+    def locationscore(self, rows):
+        locations = dict([(row[0], 1000000) for row in rows])
+        for row in rows:
+            loc = sum(row[1:])
+            if loc < locations[row[0]]: locations[row[0]] = loc
+        
+        return self.normalizescores(locations, smallIsBetter = 1)
 
 
-# for row in rows:
-#     print('row', row)
+
+
+e = searcher('searchindex.db')
+e.query('java script react')
