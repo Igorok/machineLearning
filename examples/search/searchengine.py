@@ -262,7 +262,7 @@ class searcher:
                     # w0.wordid=123 and w0.urlid=w1.urlid and
                     clauselist += ' and '
                     clauselist += 'w%d.urlid=w%d.urlid and ' % (tablenumber - 1, tablenumber)
-                
+
                 # w0.urlid, w0.location
                 fieldlist += ',w%d.location' % tablenumber
                 # wordlocation w0
@@ -270,7 +270,7 @@ class searcher:
                 # w0.wordid=123
                 clauselist += 'w%d.wordid=%d' % (tablenumber, wordid)
                 tablenumber += 1
-        
+
 
         # fieldlist += ',url'
         # tablelist += ' left join urllist on w0.urlid = urllist.rowid'
@@ -298,7 +298,8 @@ class searcher:
         # This is where we'll put our scoring functions
         weights = [
             (1.0, self.frequencyscore(rows)),
-            (1.0, self.locationscore(rows)),
+            (1.2, self.locationscore(rows)),
+            (1.4, self.distancescore(rows))
 
         #     (1.0, self.pagerankscore(rows)),
         #     (1.0, self.linktextscore(rows, wordids)),
@@ -358,8 +359,25 @@ class searcher:
         for row in rows:
             loc = sum(row[1:])
             if loc < locations[row[0]]: locations[row[0]] = loc
-        
+
         return self.normalizescores(locations, smallIsBetter = 1)
+
+    '''
+    Если запрос содержит несколько слов, то часто бывает полезно ранжировать результаты в зависимости от того, насколько близко друг к другу встречаются поисковые слова. Как правило, вводя запрос из нескольких слов, человек хочет найти документы, в которых эти слова концептуально связаны. Это более слабое условие, чем фраза, заключенная в кавычки, когда слова должны встречаться точно в указанном порядке без промежуточных слов. Рассматриваемая метрика допускает изменение порядка и наличие дополнительных слов между поисковыми.
+    '''
+    def distancescore(self, rows):
+        # If there's only one word in a query, everyone wins!
+        if len(rows[0]) <= 2: return dict([(row[0], 1.0) for row in rows])
+
+        # Initialize the dictionary with large values
+        mindistance = dict([(row[0], 1000000) for row in rows])
+
+        for row in rows:
+            # check distance with previous word
+            dist = sum([abs(row[i] - row[i - 1]) for i in range(2, len(row))])
+            if dist < mindistance[row[0]]: mindistance[row[0]] = dist
+
+        return self.normalizescores(mindistance,smallIsBetter = 1)
 
 
 
