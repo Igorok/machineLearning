@@ -211,11 +211,37 @@ class crawler:
         self.dbcommit()
 
 
-# crawler = crawler('searchindex.db')
-# crawler.createindextables()
+    '''
+    Алгоритм PageRank был придуман основателями компании Google, и вариации этой идеи теперь применяются во всех крупных поисковых машинах. Этот алгоритм приписывает каждой странице ранг, оценивающий ее значимость. Значимость страницы вычисляется исходя из значимостей ссылающихся на нее страниц и общего количества ссылок, имеющихся на каждой из них.
 
-# crawler = crawler('searchindex.db')
-# crawler.crawl(wikiList)
+    Теоретически алгоритм PageRank (названный по фамилии одного из его изобретателей Лари Пейджа (Larry Page)) рассчитывает вероятность того, что человек, случайно переходящий по ссылкам, доберется до некоторой страницы. Чем больше ссылок ведет на данную страницу с других популярных страниц, тем выше вероятность, что экспериментатор чисто случайно наткнется на нее. Разумеется, если пользователь будет щелкать по ссылкам бесконечно долго, то в конце концов он посетит каждую страницу, но большинство людей в какой-то момент останавливаются. Чтобы учесть это, в алгоритм Page-Rank введен коэффициент затухания 0,85, означающий, что пользователь продолжит переходить по ссылкам, имеющимся на текущей странице, с вероятностью 0,85.
+    PR(A) = 0,15 + 0,85 × (PR(B)/ссылки(B) + PR(C)/ссылки(C) + PR(D)/ссылки(D))
+    Невозможно вычислить ранг страницы, пока неизвестны ранги ссылающихся на нее страниц, а эти ранги можно вычислить, только зная ранги страницы, которые ссылаются на них. Решение состоит в том, чтобы присвоить всем страницам произвольный начальный ранг (в программе ниже взято значение 1,0, но на самом деле точная величина несущественна) и провести несколько итераций. После каждой итерации ранг каждой страницы будет все ближе к истинному значению PageRank. Количество необходимых итераций зависит от числа страниц, но для того небольшого набора, с которым мы работаем, 20 должно быть достаточно.
+    '''
+    def calculatepagerank(self, iterations = 20):
+        # clear out the current page rank tables
+        self.con.execute('drop table if exists pagerank')
+        self.con.execute('create table pagerank(urlid primary key,score)')
+        
+        # initialize every url with a page rank of 1
+        for (urlid,) in self.con.execute('select rowid from urllist'):
+            self.con.execute('insert into pagerank(urlid,score) values (%d,1.0)' % urlid)
+        self.dbcommit()
+        
+        for i in range(iterations):
+            print("Iteration %d" % (i))
+            for (urlid,) in self.con.execute('select rowid from urllist'):
+                pr = 0.15
+                # Loop through all the pages that link to this one
+                for (linker,) in self.con.execute('select distinct fromid from link where toid=%d' % urlid):
+                    # Get the page rank of the linker
+                    linkingpr = self.con.execute('select score from pagerank where urlid=%d' % linker).fetchone()[0]
+                    # Get the total number of links from the linker
+                    linkingcount = self.con.execute('select count(*) from link where fromid=%d' % linker).fetchone()[0]
+                    pr += 0.85 * (linkingpr / linkingcount)
+                self.con.execute('update pagerank set score=%f where urlid=%d' % (pr, urlid))
+
+            self.dbcommit()
 
 
 
@@ -298,10 +324,11 @@ class searcher:
         # This is where we'll put our scoring functions
         weights = [
             (1.0, self.frequencyscore(rows)),
-            (1.2, self.locationscore(rows)),
-            (1.4, self.distancescore(rows))
+            (1.0, self.locationscore(rows)),
+            # (1.0, self.distancescore(rows)),
+            # (1.0, self.inboundlinkscore(rows)),
+            (1.0, self.pagerankscore(rows)),
 
-        #     (1.0, self.pagerankscore(rows)),
         #     (1.0, self.linktextscore(rows, wordids)),
         #     (5.0, self.nnscore(rows, wordids))
         ]
@@ -379,8 +406,41 @@ class searcher:
 
         return self.normalizescores(mindistance,smallIsBetter = 1)
 
+    '''
+    Простейший способ работы с внешними ссылками заключается в том, чтобы подсчитать, сколько их ведет на каждую страницу, и использовать результат в качестве метрики. Так обычно оцениваются научные работы; считается, что их значимость тем выше, чем чаще их цитируют. Представленная ниже функция ранжирования создает словарь счетчиков, делая запрос к таблице ссылок для каждого уникального идентификатора URL в списке rows , а затем возвращает нормализованный результат
+    '''
+    def inboundlinkscore(self, rows):
+        uniqueurls = dict([(row[0], 1) for row in rows])
+        inboundcount = dict(
+            [
+                (u, self.con.execute('select count(*) from link where toid=%d' % u).fetchone()[0]) 
+                for u in uniqueurls
+            ]
+        )
+        return self.normalizescores(inboundcount)
+
+    '''
+    Теперь, когда у нас есть таблица рангов, для ее использования достаточно написать функцию, которая будет извлекать ранг и выполнять нормализацию.
+    '''
+    def pagerankscore(self, rows):
+        pageranks = dict(
+            [
+                (row[0], self.con.execute('select score from pagerank where urlid=%d' % row[0]).fetchone()[0])
+                for row in rows
+            ]
+        )
+        maxrank = max(pageranks.values())
+        normalizedscores = dict(
+            [
+                (u, float(l) / maxrank) for (u, l) in pageranks.items()
+            ]
+        )
+        return normalizedscores
 
 
+
+# crawler = crawler('searchindex.db')
+# crawler.calculatepagerank()
 
 e = searcher('searchindex.db')
 e.query('java script react')
