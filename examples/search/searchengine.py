@@ -328,8 +328,7 @@ class searcher:
             # (1.0, self.distancescore(rows)),
             # (1.0, self.inboundlinkscore(rows)),
             (1.0, self.pagerankscore(rows)),
-
-        #     (1.0, self.linktextscore(rows, wordids)),
+            (1.0, self.linktextscore(rows, wordids)),
         #     (5.0, self.nnscore(rows, wordids))
         ]
 
@@ -436,6 +435,24 @@ class searcher:
             ]
         )
         return normalizedscores
+
+    '''
+    Еще один полезный способ ранжирования результатов – использование текста ссылок на страницу при определении степени ее релевантности запросу. Часто удается получить более качественную информацию из того, что сказано в ссылках, ведущих на страницу, чем из самой страницы, поскольку авторы сайтов обычно включают краткое описание того, на что ссылаются.
+    '''
+    def linktextscore(self, rows, wordids):
+        linkscores = dict([(row[0], 0) for row in rows])
+        for wordid in wordids:
+            cur = self.con.execute('select link.fromid,link.toid from linkwords,link where wordid=%d and linkwords.linkid=link.rowid' % wordid)
+            for (fromid, toid) in cur:
+                if toid in linkscores:
+                    pr = self.con.execute('select score from pagerank where urlid=%d' % fromid).fetchone()[0]
+                    linkscores[toid] += pr
+        maxscore = max(linkscores.values())
+        normalizedscores = dict([(u, float(l) / maxscore) for (u, l) in linkscores.items()])
+        return normalizedscores
+
+
+
 
 
 
