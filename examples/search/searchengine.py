@@ -222,12 +222,12 @@ class crawler:
         # clear out the current page rank tables
         self.con.execute('drop table if exists pagerank')
         self.con.execute('create table pagerank(urlid primary key,score)')
-        
+
         # initialize every url with a page rank of 1
         for (urlid,) in self.con.execute('select rowid from urllist'):
             self.con.execute('insert into pagerank(urlid,score) values (%d,1.0)' % urlid)
         self.dbcommit()
-        
+
         for i in range(iterations):
             print("Iteration %d" % (i))
             for (urlid,) in self.con.execute('select rowid from urllist'):
@@ -297,10 +297,6 @@ class searcher:
                 clauselist += 'w%d.wordid=%d' % (tablenumber, wordid)
                 tablenumber += 1
 
-
-        # fieldlist += ',url'
-        # tablelist += ' left join urllist on w0.urlid = urllist.rowid'
-
         # Create the query from the separate parts
         fullquery = 'select %s from %s where %s' % (fieldlist, tablelist, clauselist)
         print(fullquery)
@@ -310,10 +306,6 @@ class searcher:
 
         return rows, wordids
 
-
-# searcher = searcher('searchindex.db')
-# rows, wordids = searcher.getmatchrows('java script react')
-# print('rows', rows, len(rows))
 
 
     '''
@@ -412,7 +404,7 @@ class searcher:
         uniqueurls = dict([(row[0], 1) for row in rows])
         inboundcount = dict(
             [
-                (u, self.con.execute('select count(*) from link where toid=%d' % u).fetchone()[0]) 
+                (u, self.con.execute('select count(*) from link where toid=%d' % u).fetchone()[0])
                 for u in uniqueurls
             ]
         )
@@ -438,6 +430,8 @@ class searcher:
 
     '''
     Еще один полезный способ ранжирования результатов – использование текста ссылок на страницу при определении степени ее релевантности запросу. Часто удается получить более качественную информацию из того, что сказано в ссылках, ведущих на страницу, чем из самой страницы, поскольку авторы сайтов обычно включают краткое описание того, на что ссылаются.
+
+    Этот код в цикле обходит все слова из списка wordids и ищет ссылки, содержащие эти слова. Если страница, на которую ведет ссылка, совпадает с каким-нибудь результатом поиска, то ранг источника ссылки прибавляется к окончательному рангу этой страницы. Страница, на которую ведет много ссылок со значимых страниц, содержащих поисковые слова, получит очень высокий ранг. Для многих найденных страниц вообще не будет ссылок с подходящим текстом, поэтому их ранг окажется равен 0.
     '''
     def linktextscore(self, rows, wordids):
         linkscores = dict([(row[0], 0) for row in rows])
