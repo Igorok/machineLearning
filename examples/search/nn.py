@@ -9,6 +9,9 @@
 from math import tanh
 import sqlite3
 
+'''
+Чтобы определить, насколько следует изменить суммарный входной сигнал, алгоритм обучения должен знать наклон функции tanh для текущего уровня выходного сигнала. В средней точке графика, когда выходной сигнал равен 0,0, функция изменяется очень круто, поэтому небольшое изменение входного сигнала приводит к большому изменению выходного. По мере того как уровень выходного сигнала приближается к –1 или к 1, изменение входного сигнала меньше сказывается на выходном.
+'''
 def dtanh(y):
     return 1.0 - y * y
 
@@ -148,17 +151,78 @@ class searchnet:
 
         return self.ao[:]
 
+    def getresult(self, wordids, urlids):
+        self.setupnetwork(wordids, urlids)
+        return self.feedforward()
 
 
-        def getresult(self, wordids, urlids):
-            self.setupnetwork(wordids, urlids)
-            return self.feedforward()
+    '''
+    Сеть принимает входные сигналы и генерирует выходные, но, поскольку ее не научили, какой результат считать хорошим, выдаваемые ею ответы практически бесполезны. Сейчас мы обучим сеть, предъявив ей реальные примеры запросов, найденных результатов и действий пользователей. Чтобы это сделать, нам необходим алгоритм, который будет изменять веса связей между узлами, так чтобы сеть поняла, как выглядит правильный ответ. Веса следует подстраивать постепенно, поскольку нельзя предполагать, что ответ, выбранный одним пользователем, устроит и всех остальных. Описанный ниже алгоритм называется обратным распространением, поскольку в процессе подстройки весов он продвигается по сети в обратном направлении.
 
+    Для каждого узла из выходного слоя необходимо:
+    1. Вычислить разность между текущим и желательным уровнем выходного сигнала.
+    2. С помощью функции dtanh определить, насколько должен измениться суммарный входной сигнал для этого узла.
+    3. Изменить вес каждой входящей связи пропорционально ее текущему весу и скорости обучения.
+    Для каждого узла в скрытом слое необходимо:
+    1. Изменить выходной сигнал узла на сумму весов каждой выходной связи, умноженных на величину требуемого изменения выходного сигнала конечного узла этой связи.
+    2. С помощью функции dtanh вычислить, насколько должен измениться суммарный входной сигнал для этого узла.
+    3. Изменить вес каждой входящей связи пропорционально ее текущему весу и скорости обучения.
+    '''
+    def backPropagate(self, targets, N = 0.5):
+        # calculate errors for output
+        output_deltas = [0.0] * len(self.urlids)
+        for k in range(len(self.urlids)):
+            error = targets[k] - self.ao[k]
+            output_deltas[k] = dtanh(self.ao[k]) * error
 
+        # calculate errors for hidden layer
+        hidden_deltas = [0.0] * len(self.hiddenids)
+        for j in range(len(self.hiddenids)):
+            error = 0.0
+            for k in range(len(self.urlids)):
+                error = error + output_deltas[k] * self.wo[j][k]
+            hidden_deltas[j] = dtanh(self.ah[j]) * error
 
+        # update output weights
+        for j in range(len(self.hiddenids)):
+            for k in range(len(self.urlids)):
+                change = output_deltas[k] * self.ah[j]
+                self.wo[j][k] = self.wo[j][k] + N * change
 
+        # update input weights
+        for i in range(len(self.wordids)):
+            for j in range(len(self.hiddenids)):
+                change = hidden_deltas[j] * self.ai[i]
+                self.wi[i][j] = self.wi[i][j] + N * change
 
+    '''
+    Осталось только написать простой метод, который подготовит сеть, вызовет алгоритм feedforward и запустит обратное распространение.
+    '''
+    def trainquery(self, wordids, urlids, selectedurl): 
+        # generate a hidden node if necessary
+        self.generatehiddennode(wordids, urlids)
 
+        self.setupnetwork(wordids, urlids)
+        self.feedforward()
+        targets = [0.0] * len(urlids)
+        targets[urlids.index(selectedurl)] = 1.0
+        error = self.backPropagate(targets)
+        self.updatedatabase()
+
+    '''
+    Для сохранения результатов понадобится метод записи в базу данных новых весов, которые хранятся в переменных экземпляра wi и wo
+    '''
+    def updatedatabase(self):
+        # set them to database values
+        for i in range(len(self.wordids)):
+            for j in range(len(self.hiddenids)):
+                self.setstrength(self.wordids[i], self. hiddenids[j], 0, self.wi[i][j])
+
+        for j in range(len(self.hiddenids)):
+            for k in range(len(self.urlids)):
+                self.setstrength(self.hiddenids[j], self.urlids[k], 1, self.wo[j][k])
+
+        self.con.commit()
 
 
 
