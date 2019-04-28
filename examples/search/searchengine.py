@@ -7,8 +7,8 @@ import sqlite3
 from pathlib import Path
 import re
 
-# import nn
-# mynet=nn.searchnet('nn.db')
+import nn
+mynet=nn.searchnet('nn.db')
 
 # Создать список игнорируемых слов
 ignorewords={'the':1,'of':1,'to':1,'and':1,'a':1,'in':1,'is':1,'it':1}
@@ -30,7 +30,9 @@ wikiList = [
     'https://en.wikipedia.org/wiki/Web_development',
     'https://en.wikipedia.org/wiki/Node.js',
     'https://en.wikipedia.org/wiki/React_(JavaScript_library)',
-    'https://en.wikipedia.org/wiki/Flask_(web_framework)'
+    'https://en.wikipedia.org/wiki/Flask_(web_framework)',
+    'https://en.wikipedia.org/wiki/Zend_Framework',
+    'https://en.wikipedia.org/wiki/Angular_(web_framework)'
 ]
 
 '''
@@ -321,7 +323,7 @@ class searcher:
             # (1.0, self.inboundlinkscore(rows)),
             (1.0, self.pagerankscore(rows)),
             (1.0, self.linktextscore(rows, wordids)),
-            (5.0, self.nnscore(rows, wordids))
+            # (5.0, self.nnscore(rows, wordids))
         ]
 
         for (weight, scores) in weights:
@@ -451,6 +453,9 @@ class searcher:
         urlids = [urlid for urlid in dict([(row[0], 1) for row in rows])]
         nnres = mynet.getresult(wordids, urlids)
         scores = dict([(urlids[i], nnres[i]) for i in range(len(urlids))])
+
+        print('nnscore', rows, wordids, scores)
+
         return self.normalizescores(scores)
 
 
@@ -459,7 +464,9 @@ class searcher:
 
 
 # crawler = crawler('searchindex.db')
+# crawler.crawl(wikiList)
 # crawler.calculatepagerank()
 
 e = searcher('searchindex.db')
 e.query('java script react')
+# e.query('php web')

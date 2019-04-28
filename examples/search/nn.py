@@ -62,6 +62,8 @@ class searchnet:
 
     '''
     Обычно при построении нейронной сети все узлы создаются заранее. Можно было бы предварительно создать гигантскую сеть с тысячами узлов в скрытом слое и уже готовыми связями, но в данном случае проще и быстрее создавать скрытые узлы, когда в них возникает надобность. Следующая функция создает новый скрытый узел всякий раз, как ей передается не встречавшаяся ранее комбинация слов. Затем она создает связи с весами по умолчанию между этими словами и скрытым узлом и между узлом запроса и URL, который этот запрос возвращает.
+
+    Генерирует связь между словами и ссылками с дефолтными значениями
     '''
     def generatehiddennode(self, wordids, urls):
         if len(wordids) > 3: return None
@@ -83,7 +85,12 @@ class searchnet:
             self.con.commit()
 
     '''
+    Прямой проход
+    Для начала выберем функцию, которая описывает, с какой силой каждый узел должен реагировать на входной сигнал. В нашем примере сети мы воспользуемся для этого функцией гиперболического тангенса. По оси X откладывается входной сигнал, подаваемый узлу. В окрестности 0 выходной сигнал быстро нарастает. Когда сила входного сигнала равна 2, выходной сигнал почти равен 1 и дальше уже почти не растет. Функции такого типа называются сигмоидными, они имеют форму буквы S. Для вычисления силы выходного сигнала нейронов в нейронных сетях почти всегда используются сигмоидные функции.
+
     Прежде чем вызывать алгоритм feedforward , наш класс должен прочитать из базы информацию об узлах и связях и построить в памяти часть сети, релевантную конкретному запросу. Первым делом мы напишем функцию, которая ищет все узлы из скрытого слоя, релевантные запросу; в нашем случае это узлы, связанные с любым из слов запроса или с каким-нибудь URL, принадлежащим множеству результатов поиска. Так как никакие другие узлы не участвуют в определении выхода или в обучении сети, то и включать их необязательно.
+
+    получает все id для скрытого слоя word1_word2, сначала от слов, потом от ссылок
     '''
     def getallhiddenids(self, wordids, urlids):
         l1 = {}
@@ -112,7 +119,7 @@ class searchnet:
         # create weights matrix
         self.wi = [
                 [
-                    self.getstrength(wordid,hiddenid,0) 
+                    self.getstrength(wordid, hiddenid, 0) 
                     for hiddenid in self.hiddenids
                 ] 
                 for wordid in self.wordids
@@ -157,6 +164,8 @@ class searchnet:
 
 
     '''
+    Обучение с обратным распространением
+
     Сеть принимает входные сигналы и генерирует выходные, но, поскольку ее не научили, какой результат считать хорошим, выдаваемые ею ответы практически бесполезны. Сейчас мы обучим сеть, предъявив ей реальные примеры запросов, найденных результатов и действий пользователей. Чтобы это сделать, нам необходим алгоритм, который будет изменять веса связей между узлами, так чтобы сеть поняла, как выглядит правильный ответ. Веса следует подстраивать постепенно, поскольку нельзя предполагать, что ответ, выбранный одним пользователем, устроит и всех остальных. Описанный ниже алгоритм называется обратным распространением, поскольку в процессе подстройки весов он продвигается по сети в обратном направлении.
 
     Для каждого узла из выходного слоя необходимо:
@@ -216,7 +225,7 @@ class searchnet:
         # set them to database values
         for i in range(len(self.wordids)):
             for j in range(len(self.hiddenids)):
-                self.setstrength(self.wordids[i], self. hiddenids[j], 0, self.wi[i][j])
+                self.setstrength(self.wordids[i], self.hiddenids[j], 0, self.wi[i][j])
 
         for j in range(len(self.hiddenids)):
             for k in range(len(self.urlids)):
@@ -230,26 +239,29 @@ class searchnet:
 
 
 
-
-
-
-
-
-
-
-
-
+'''
+https://en.wikipedia.org/wiki/JavaScript
+https://en.wikipedia.org/wiki/Web_development
+https://en.wikipedia.org/wiki/Ubuntu
 '''
 
 mynet = searchnet('nn.db')
-mynet.maketables( )
-wWorld, wRiver, wBank = 101, 102, 103
-uWorldBank, uRiver, uEarth = 201, 202, 203
-mynet.generatehiddennode([wWorld, wBank], [uWorldBank, uRiver, uEarth])
+# mynet.maketables( )
+wJava, wScript, wWeb = 357, 267, 370
+uJavaScript, uWeb, uUbuntu = 39, 44, 7487
 
-for c in mynet.con.execute('select * from wordhidden'): print c
-for c in mynet.con.execute('select * from hiddenurl'): print c
+# mynet.generatehiddennode([wJava, wScript], [uJavaScript, uWeb, uUbuntu])
 
-'''
- 
+# for c in mynet.con.execute('select * from wordhidden'): 
+#     print(c)
+# for c in mynet.con.execute('select * from hiddenurl'): 
+#     print(c)
 
+
+# mnres = mynet.getresult([wJava, wScript], [uJavaScript, uWeb, uUbuntu])
+# print('mnres', mnres)
+
+
+mynet.trainquery([wJava, wScript], [uJavaScript, uWeb, uUbuntu], uJavaScript)
+mnres = mynet.getresult([wJava, wScript], [uJavaScript, uWeb, uUbuntu])
+print('mnres', mnres)
