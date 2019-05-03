@@ -51,9 +51,6 @@ class searchnet:
     Еще необходим метод setstrength , который выясняет, существует ли уже связь, и создает либо обновляет связь, приписывая ей заданную силу. Он будет использоваться в коде для обучения сети:
     '''
     def setstrength(self, fromid, toid, layer, strength):
-
-        print('setstrength', fromid, toid, layer, strength)
-
         if layer == 0: table = 'wordhidden'
         else: table = 'hiddenurl'
 
@@ -109,6 +106,8 @@ class searchnet:
 
     '''
     Нам также понадобится метод для конструирования релевантной сети с текущими весами из базы данных. Эта функция инициализирует различные переменные экземпляра класса: список слов, относящиеся к запросу узлы и URL, уровень выходного сигнала для каждого узла и веса всех связей между узлами. Веса считываются из базы данных с помощью ранее разработанных функций.
+
+    устанавливает данные в классе, ид слов, ссылок и скрытых слоев. получает веса от слов до скрытого слоя, от скрытого слоя до ссылок.
     '''
     def setupnetwork(self, wordids, urlids):
         # value lists
@@ -177,6 +176,7 @@ class searchnet:
     1. Вычислить разность между текущим и желательным уровнем выходного сигнала.
     2. С помощью функции dtanh определить, насколько должен измениться суммарный входной сигнал для этого узла.
     3. Изменить вес каждой входящей связи пропорционально ее текущему весу и скорости обучения.
+
     Для каждого узла в скрытом слое необходимо:
     1. Изменить выходной сигнал узла на сумму весов каждой выходной связи, умноженных на величину требуемого изменения выходного сигнала конечного узла этой связи.
     2. С помощью функции dtanh вычислить, насколько должен измениться суммарный входной сигнал для этого узла.
@@ -250,10 +250,10 @@ https://en.wikipedia.org/wiki/Web_development
 https://en.wikipedia.org/wiki/Ubuntu
 '''
 
-mynet = searchnet('nn.db')
+# mynet = searchnet('nn.db')
 # mynet.maketables( )
-wJava, wScript, wWeb = 357, 267, 370
-uJavaScript, uWeb, uUbuntu = 39, 44, 7487
+# wJava, wScript, wWeb = 357, 267, 370
+# uJavaScript, uWeb, uUbuntu = 39, 44, 7487
 
 # mynet.generatehiddennode([wJava, wScript], [uJavaScript, uWeb, uUbuntu])
 
@@ -262,11 +262,9 @@ uJavaScript, uWeb, uUbuntu = 39, 44, 7487
 # for c in mynet.con.execute('select * from hiddenurl'): 
 #     print(c)
 
-
 # mnres = mynet.getresult([wJava, wScript], [uJavaScript, uWeb, uUbuntu])
 # print('mnres', mnres)
 
-
-mynet.trainquery([wJava, wScript], [uJavaScript, uWeb, uUbuntu], uJavaScript)
-mnres = mynet.getresult([wJava, wScript], [uJavaScript, uWeb, uUbuntu])
-print('mnres', mnres)
+# mynet.trainquery([wJava, wScript], [uJavaScript, uWeb, uUbuntu], uJavaScript)
+# mnres = mynet.getresult([wJava, wScript], [uJavaScript, uWeb, uUbuntu])
+# print('mnres', mnres)

@@ -323,7 +323,7 @@ class searcher:
             # (1.0, self.inboundlinkscore(rows)),
             (1.0, self.pagerankscore(rows)),
             (1.0, self.linktextscore(rows, wordids)),
-            # (5.0, self.nnscore(rows, wordids))
+            (5.0, self.nnscore(rows, wordids))
         ]
 
         for (weight, scores) in weights:
@@ -452,10 +452,8 @@ class searcher:
         # Get unique URL IDs as an ordered list
         urlids = [urlid for urlid in dict([(row[0], 1) for row in rows])]
         nnres = mynet.getresult(wordids, urlids)
+        print('nnres', nnres)
         scores = dict([(urlids[i], nnres[i]) for i in range(len(urlids))])
-
-        print('nnscore', rows, wordids, scores)
-
         return self.normalizescores(scores)
 
 
@@ -468,5 +466,6 @@ class searcher:
 # crawler.calculatepagerank()
 
 e = searcher('searchindex.db')
-e.query('java script react')
+# e.query('java script react')
 # e.query('php web')
+e.query('java script angular')
