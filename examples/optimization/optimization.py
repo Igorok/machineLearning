@@ -12,6 +12,7 @@ import time
 import random
 import math
 
+s = [1, 4, 3, 2, 7, 3, 6, 3, 2, 4, 5, 3]
 people = [
     ('Seymour','BOS'),
     ('Franny','DAL'),
@@ -67,9 +68,7 @@ def printschedule(r):
         )
 
 
-# s = [1, 4, 3, 2, 7, 3, 6, 3, 2, 4, 5, 3]
 # printschedule(s)
-
 
 
 '''
@@ -82,4 +81,51 @@ def printschedule(r):
     Время ожидания - Время, проведенное в аэропорту в ожидании прибытия остальных членов группы.
     Время вылета - Если самолет вылетает рано утром, это может увеличивать общую стоимость из-за того, что путешественники не выспятся.
     Время аренды автомобилей - Если группа арендует машину, то вернуть ее следует до того часа, когда она была арендована, иначе придется платить за лишний день.
+
+Определившись с тем, какие переменные влияют на стоимость, нужно решить, как из них составить одно число. В нашем случае можно, например, выразить в деньгах время в пути или время ожидания в аэропорту. Скажем, каждая минута в воздухе эквивалентна $1 (иначе говоря, можно потратить лишние $90 на прямой рейс, экономящий полтора часа), а каждая минута ожидания в аэропорту эквивалентна $0,50. Можно было бы также приплюсовать стоимость лишнего дня аренды машины, если для всех имеет смысл вернуться в аэропорт к более позднему часу. Кроме того, добавляется штраф $50, если машина возвращена в более поздний час, чем арендована.
+'''
+
+def schedulecost(sol):
+    totalprice = 0
+    latestarrival = 0
+    earliestdep = 24 * 60
+
+    for d in range(int(len(sol) / 2)):
+        # Get the inbound and outbound flights
+        origin = people[d][1]
+        outbound = flights[(origin, destination)][int(sol[d])]
+        returnf = flights[(destination, origin)][int(sol[d + 1])]
+
+        # Total price is the price of all outbound and return flights
+        totalprice += outbound[2]
+        totalprice += returnf[2]
+
+        # Track the latest arrival and earliest departure
+        if latestarrival < getminutes(outbound[1]): 
+            latestarrival = getminutes(outbound[1])
+        if earliestdep > getminutes(returnf[0]): 
+            earliestdep = getminutes(returnf[0])
+
+    # Every person must wait at the airport until the latest person arrives.
+    # They also must arrive at the same time and wait for their flights.
+    totalwait = 0  
+    for d in range(int(len(sol) / 2)):
+        origin = people[d][1]
+        outbound = flights[(origin, destination)][int(sol[d])]
+        returnf = flights[(destination, origin)][int(sol[d + 1])]
+        totalwait += latestarrival - getminutes(outbound[1])
+        totalwait += getminutes(returnf[0]) - earliestdep  
+
+    # Does this solution require an extra day of car rental? That'll be $50!
+    if latestarrival > earliestdep: 
+        totalprice += 50
+
+    return totalprice + totalwait
+
+
+# cost = schedulecost(s)
+# print('cost', cost)
+
+'''
+    Теоретически можно испробовать все возможные комбинации, но в этом примере есть 16 рейсов и для каждого имеется девять вариантов, что в итоге дает 916 (около 300 миллиардов) комбинаций.
 '''
