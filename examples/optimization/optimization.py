@@ -295,10 +295,17 @@ Seymour       BOS 17:11-18:30 $108 13:39-15:30 $ 74
 Модифицировать решения можно двумя способами. Более простой называется мутацией; обычно это небольшое, простое, случайное изменение существующего решения.
 Другой способ называется скрещиванием (или кроссовером). Состоит он в том, что мы берем какие-нибудь два из лучших решений и как-то комбинируем их.
 Размер новой популяции обычно совпадает с размером предыдущей, а создается она путем случайных мутаций и скрещиваний лучших решений.
+
+popsize - Размер популяции.
+mutprob - Вероятность того, что новая особь будет результатом мутации, а не скрещивания.
+elite - Доля особей в популяции, считающихся хорошими решениями и переходящих в следующее поколение.
+maxiter - Количество поколений.
+
 '''
 
 def geneticoptimize(domain, costf, popsize = 50, step = 1, mutprob = 0.2, elite = 0.2, maxiter = 100):
     # Mutation Operation
+    # В нашем случае для мутации достаточно выбрать одну из переменных решения и уменьшить либо увеличить ее.
     def mutate(vec):
         i = random.randint(0, len(domain) - 1)
         if random.random() < 0.5 and vec[i] > domain[i][0]:
@@ -307,6 +314,7 @@ def geneticoptimize(domain, costf, popsize = 50, step = 1, mutprob = 0.2, elite 
             return vec[0 : i] + [vec[i] + step] + vec[i + 1:]
 
     # Crossover Operation
+    # В нашем примере достаточно взять случайное число элементов из одного решения, а остальные – из другого
     def crossover(r1, r2):
         i = random.randint(1, len(domain) - 2)
         return r1[0:i] + r2[i:]
@@ -347,12 +355,16 @@ def geneticoptimize(domain, costf, popsize = 50, step = 1, mutprob = 0.2, elite 
         # Print current best score
         print(scores[0][0])
 
-    print ('scores[0][1]', scores[0][1])
-
     return scores[0][1]
 
 
-
-
-geneticoptimize(domain, schedulecost)
+'''
+   Seymour       BOS 12:34-15:02 $109 10:33-12:03 $ 74
+    Franny       DAL 10:30-14:57 $290 10:51-14:16 $256
+     Zooey       CAK 10:53-13:36 $189 10:32-13:16 $139
+      Walt       MIA 11:28-14:40 $248 12:37-15:05 $170
+     Buddy       ORD 12:44-14:17 $134 10:33-13:11 $132
+       Les       OMA 11:08-13:07 $175 15:07-17:21 $129
+'''
+s = geneticoptimize(domain, schedulecost)
 printschedule(s)
