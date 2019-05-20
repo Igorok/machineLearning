@@ -308,10 +308,75 @@ def geneticoptimize(domain, costf, popsize = 50, step = 1, mutprob = 0.2, elite 
     # В нашем случае для мутации достаточно выбрать одну из переменных решения и уменьшить либо увеличить ее.
     def mutate(vec):
         i = random.randint(0, len(domain) - 1)
+        mut = None
+
+        
         if random.random() < 0.5 and vec[i] > domain[i][0]:
-            return vec[0 : i] + [vec[i] - step] + vec[i + 1:] 
+            mut =  vec[0 : i] + [vec[i] - step] + vec[i + 1:]
         elif vec[i] < domain[i][1]:
-            return vec[0 : i] + [vec[i] + step] + vec[i + 1:]
+            mut =  vec[0 : i] + [vec[i] + step] + vec[i + 1:]
+        elif domain[i][0] == domain[i][1]:
+            return vec
+
+
+        if mut is None:
+            print(
+                'mutate', 
+                'domain', domain,
+                'vec', vec,
+                'vec[i]', vec[i],
+                'domain[i][0]', domain[i][0],
+                'domain[i][1]', domain[i][1],
+                'mut', mut
+            )
+
+        return mut
+
+
+        '''
+        mutate 
+        domain [(0, 9), (0, 8), (0, 7), (0, 6), (0, 5), (0, 4), (0, 3), (0, 2), (0, 1), (0, 0)] 
+        vec [0, 7, 2, 2, 3, 2, 3, 2, 0, 0] 
+        vec[i] 0 
+        domain[i][0] 0 
+        domain[i][1] 0 
+        mut None
+
+
+        mutate 
+        domain [(0, 9), (0, 8), (0, 7), (0, 6), (0, 5), (0, 4), (0, 3), (0, 2), (0, 1), (0, 0)] 
+        vec [6, 8, 6, 0, 2, 4, 1, 1, 1, 0] 
+        vec[i] 1 
+        domain[i][0] 0 
+        domain[i][1] 1 
+        mut None
+
+
+        mutate 
+        domain [(0, 9), (0, 8), (0, 7), (0, 6), (0, 5), (0, 4), (0, 3), (0, 2), (0, 1), (0, 0)] 
+        vec [7, 0, 0, 5, 5, 1, 0, 0, 1, 0] 
+        vec[i] 0 
+        domain[i][0] 0 
+        domain[i][1] 0 
+        mut None
+
+        '''
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     # Crossover Operation
     # В нашем примере достаточно взять случайное число элементов из одного решения, а остальные – из другого
@@ -333,6 +398,9 @@ def geneticoptimize(domain, costf, popsize = 50, step = 1, mutprob = 0.2, elite 
 
     # Main loop 
     for i in range(maxiter):
+
+        # print('pop 1', pop)
+
         scores = [(costf(v), v) for v in pop]
         scores.sort()
         ranked = [v for (s, v) in scores]
@@ -340,17 +408,23 @@ def geneticoptimize(domain, costf, popsize = 50, step = 1, mutprob = 0.2, elite 
         # Start with the pure winners
         pop = ranked[0 : topelite]
 
+        # print('pop 2', pop)
+
         # Add mutated and bred forms of the winners
         while len(pop) < popsize:
             if random.random() < mutprob:
                 # Mutation
                 c = random.randint(0, topelite)
                 pop.append(mutate(ranked[c]))
+                # print('Mutation', c, ranked[c], mutate(ranked[c]))
             else:
                 # Crossover
                 c1 = random.randint(0, topelite)
                 c2 = random.randint(0, topelite)
                 pop.append(crossover(ranked[c1], ranked[c2]))
+                # print('Crossover', c1, c2, ranked[c1], ranked[c2], crossover(ranked[c1], ranked[c2]))
+
+        print('pop 3', pop)
 
         # Print current best score
         print(scores[0][0])
@@ -366,5 +440,5 @@ def geneticoptimize(domain, costf, popsize = 50, step = 1, mutprob = 0.2, elite 
      Buddy       ORD 12:44-14:17 $134 10:33-13:11 $132
        Les       OMA 11:08-13:07 $175 15:07-17:21 $129
 '''
-s = geneticoptimize(domain, schedulecost)
-printschedule(s)
+# s = geneticoptimize(domain, schedulecost)
+# printschedule(s)
