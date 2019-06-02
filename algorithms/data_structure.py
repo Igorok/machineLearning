@@ -236,24 +236,62 @@ def palchecker(aString):
 '''
 # вершина
 class Vertex:
-    def __init__(self, key):
-        self.id = key
+    def __init__(self, num):
+        self.id = num
         self.connectedTo = {}
+        self.color = 'white'
+        self.dist = 1000
+        self.pred = None
+        self.disc = 0
+        self.fin = 0
 
+    # def __lt__(self,o):
+    #     return self.id < o.id
+    
     def addNeighbor(self, nbr, weight=0):
         self.connectedTo[nbr] = weight
+        
+    def setColor(self,color):
+        self.color = color
+        
+    def setDistance(self,d):
+        self.dist = d
 
-    def __str__(self):
-        return str(self.id) + ' connectedTo: ' + str([x.id for x in self.connectedTo])
+    def setPred(self,p):
+        self.pred = p
 
+    def setDiscovery(self,dtime):
+        self.disc = dtime
+        
+    def setFinish(self,ftime):
+        self.fin = ftime
+        
+    def getFinish(self):
+        return self.fin
+        
+    def getDiscovery(self):
+        return self.disc
+        
+    def getPred(self):
+        return self.pred
+        
+    def getDistance(self):
+        return self.dist
+        
+    def getColor(self):
+        return self.color
+    
     def getConnections(self):
         return self.connectedTo.keys()
-
+        
+    def getWeight(self,nbr):
+        return self.connectedTo[nbr]
+                
+    def __str__(self):
+        return str(self.id) + ":color " + self.color + ":disc " + str(self.disc) + ":fin " + str(self.fin) + ":dist " + str(self.dist) + ":pred \n\t[" + str(self.pred)+ "]\n"
+    
     def getId(self):
         return self.id
-
-    def getWeight(self, nbr):
-        return self.connectedTo[nbr]
 
 # граф
 class Graph:
@@ -262,7 +300,7 @@ class Graph:
         self.numVertices = 0
 
     # вершины
-    def addVertex(self, key):
+    def addVertex(self,key):
         self.numVertices = self.numVertices + 1
         newVertex = Vertex(key)
         self.vertList[key] = newVertex
@@ -274,7 +312,7 @@ class Graph:
         else:
             return None
 
-    def __contains__(self, n):
+    def __contains__(self,n):
         return n in self.vertList
 
     # ребра
@@ -290,7 +328,30 @@ class Graph:
 
     def __iter__(self):
         return iter(self.vertList.values())
-    
+
+"""
+g = Graph()
+for i in range(6):
+    g.addVertex(i)
+
+print('g', g)
+
+g.addEdge(0,1,5)
+g.addEdge(0,5,2)
+g.addEdge(1,2,4)
+g.addEdge(2,3,9)
+g.addEdge(3,4,7)
+g.addEdge(3,5,3)
+g.addEdge(4,0,1)
+g.addEdge(5,4,8)
+g.addEdge(5,2,1)
+
+for v in g:
+    for w in v.getConnections():
+        print("( %s , %s )" % (v.getId(), w.getId()))
+"""
+
+
 '''
 Задача о словесной лестнице
 В начале изучения алгоритмов для графов, давайте рассмотрим следующую головоломку, которая называется словесная лестница. Требуется преобразовать слово FOOL в слово SAGE. Изменения должны происходить постепенно, по букве за раз. На каждом шаге вы должны трансформировать слово в другое слово, а не в бессмыслицу. Словесная лестница была изобретена в 1878 году Льюисом Кэрролом - автором Алисы в Стране Чудес.
@@ -302,7 +363,7 @@ PALE
 SALE
 SAGE
 1) первый вариант создать список слов, потом сравнить их все друг с другом
-2) предположим, у нас есть огромное количество корзин, на каждой из которых написано четырёхбуквенное слово, в котором одна буква заменена подчёркиванием. 
+2) сгруппировать слова используя _ вместо одной буквы
 _ope
 pope
 rope
@@ -320,29 +381,92 @@ pope
 pole
 pore
 ...
+
 При обработке каждого слова в списке мы сравниваем его с корзинами, используя _ для произвольной подстановки. 
-
-
 '''
-
 
 def buildGraph(wordFile):
     d = {}
     g = Graph()
-    wfile = open(wordFile,'r')
-    # create buckets of words that differ by one letter
+    wfile = open(wordFile, 'r')
+    # группировка слов, с заменой букв от 1 до последней на _
     for line in wfile:
         word = line[:-1]
+        word = word.lower()
+
         for i in range(len(word)):
             bucket = word[:i] + '_' + word[i+1:]
             if bucket in d:
                 d[bucket].append(word)
             else:
                 d[bucket] = [word]
-    # add vertices and edges for words in the same bucket
+
+    # перебор групп
     for bucket in d.keys():
+        # перебор всех слов в группе
         for word1 in d[bucket]:
+            # сравнение текущего слова со всеми в группе и добавление ребра в граф
             for word2 in d[bucket]:
                 if word1 != word2:
-                    g.addEdge(word1,word2)
+                    g.addEdge(word1, word2)
     return g
+
+'''
+Поиск в ширину - breadth first search
+Чтобы отслеживать своё продвижение, BFS окрашивает каждую вершину в белый, серый или чёрный цвета. Все вершины при создании инициализируются белым. Когда вершина обнаруживается в первый раз, то ей задаётся серый цвет. Когда же BFS её полностью исследует, вершина окрашивается в чёрный. Это означает, что не существует смежных с ней белых вершин. С другой стороны, серый узел может иметь несколько связанных с ним белых вершин, показывая, что у нас ещё есть пространство для исследования.
+
+Проходит начиная со старта по всем связанным вершинам, делая их дочерними, и добавляя их очередь на такой же анализ, пока все связанные вершины не пройдут обработку
+'''
+def bfs(g, start):
+    # расстояние 0
+    start.setDistance(0)
+    # предок None
+    start.setPred(None)
+
+    # инициализация очереди
+    vertQueue = Queue()
+    vertQueue.enqueue(start)
+
+    # пока очередь не закончилась
+    while (vertQueue.size() > 0):
+        # текущая вершина
+        currentVert = vertQueue.dequeue()
+
+        # все связанные вершины, они станут дочерними
+        for nbr in currentVert.getConnections():
+            # связанная вершина, если она еще не оказывалась в очереди и имеет белый цвет:
+            # устанавливаем ей цвет, дистанцию, родителя и добавляем в очередь для анализа ее связей
+            if (nbr.getColor() == 'white'):
+                # устанавливаем серый цвет
+                nbr.setColor('gray')
+                # дистанция на единицу больше текущей вершины
+                nbr.setDistance(currentVert.getDistance() + 1)
+                # текущую вершину устанавливаем как родителя
+                nbr.setPred(currentVert)
+                # добавляем в очередь
+                vertQueue.enqueue(nbr)
+
+        # все связи текущей вершины обработаны, окращиваем в черный
+        currentVert.setColor('black')
+
+'''
+проходит от заданной вершины, по всем родителям, до начала
+'''
+def traverse(y):
+    x = y
+    while (x.getPred()):
+        print(x.getId())
+        x = x.getPred()
+    print(x.getId())
+
+'''
+
+g = buildGraph('word_tree.txt')
+bfs(g, g.getVertex('fool'))
+print('traverse sage')
+traverse(g.getVertex('sage'))
+print('traverse pape')
+traverse(g.getVertex('pape'))
+
+'''
+
