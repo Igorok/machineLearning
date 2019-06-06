@@ -574,4 +574,154 @@ traverse(g.getVertex('sage'))
 Лист - это узел, у которого нет детей.
 Уровень узла n - это число ветвей в пути от корня до n. 
 Высота дерева равна максимальному уровню любого его узла. 
+
+
+Бинарное дерево поиска - структура данных для работы с упорядоченными множествами, обладает следующим свойством: если x — узел бинарного дерева с ключом k, то все узлы в левом поддереве должны иметь ключи, меньшие k, а в правом поддереве большие k.
+Есть три операции обхода узлов дерева, отличающиеся порядком обхода узлов:
+inorderTraversal — обход узлов в отсортированном порядке,
+preorderTraversal — обход узлов в порядке: вершина, левое поддерево, правое поддерево,
+postorderTraversal — обход узлов в порядке: левое поддерево, правое поддерево, вершина.
+
+'''
+
+class Node:
+    def __init__(self, data):
+        self.data = data
+        self.left = None
+        self.right = None
+
+class BinarySearchTree:
+    def __init__(self):
+        self.root = None
+
+    # insert data to tree
+    def insert(self, data):
+        newNode = Node(data)
+        if self.root is None:
+            self.root = newNode
+        else:
+            self.insertNode(self.root, newNode)
+
+    # insert new vertex
+    def insertNode(self, node, newNode):
+        # insert to left less value
+        if newNode.data < node.data:
+            if node.left is None:
+                node.left = newNode
+            else:
+                self.insertNode(node.left, newNode)
+        # insert to right bigger value
+        else:
+            if node.right is None:
+                node.right = newNode
+            else:
+                self.insertNode(node.right, newNode)
+
+    # remove value
+    def remove(self, data):
+        self.root = self.removeNode(self.root, data)
+
+    # remove vertex by data
+    def removeNode(self, node, data):
+        # if vertext empty
+        if node is None:
+            return None
+        # if less remove left
+        elif node.data < data:
+            self.removeNode(node.left, data)
+            return node
+        # if bigger remove right
+        elif node.data > data:
+            self.removeNode(node.right, data)
+            return node
+        else:
+            # remove vertext without children
+            if node.left is None and node.right is None:
+                node = None
+                return node
+            # remove vertext with one children, change value to children
+            elif node.left is None:
+                node = node.right
+                return node
+            elif node.right is None:
+                node = node.left
+                return node
+
+            # remove vertex with child
+            # find less value from right
+            # make this new vertext
+            # and remove from right
+            aux = self.findMinNode(node.right)
+            node.data = aux.data
+    
+            node.right = this.removeNode(node.right, aux.data)
+            return node
+
+    def findMinNode(self, node):
+        if node.left is None:
+            return node
+        else:
+            return self.findMinNode(node.left)
+
+    # Algorithm for inorder:
+    # Traverse the left subtree i.e perform inorder on left subtree
+    # Visit the root
+    # Traverse the right subtree i.e perform inorder on right subtree
+    def inorder(self, node):
+        if node is not None:
+            self.inorder(node.left)
+            print(node.data)
+            self.inorder(node.right)
+
+    # Algorithm for preoder:
+    # Visit the root
+    # Traverse the left subtree i.e perform inorder on left subtree
+    # Traverse the right subtree i.e perform inorder on right subtree
+    def preorder(self, node):
+        if node is not None:
+            print(node.data)
+            self.preorder(node.left)
+            self.preorder(node.right)
+
+    # Algorithm for postorder:
+    # Traverse the left subtree i.e perform inorder on left subtree
+    # Traverse the right subtree i.e perform inorder on right subtree
+    # Visit the root
+    def postorder(self, node):
+        if node is not None:
+            self.postorder(node.left)
+            self.postorder(node.right)
+            print(node.data)
+
+    # returns root of the tree 
+    def getRootNode(self):
+        return self.root
+
+    # search for a node with given data 
+    def search(self, node, data):
+        # not found
+        if node is None:
+            return None
+        # if less search left
+        elif node.data < data:
+            return self.search(node.left, data)
+        # if bigger search right
+        elif node.data > data:
+            return self.search(node.right, data)
+        # found
+        else:
+            return node
+
+'''
+bst = BinarySearchTree()
+values = (15, 25, 10, 7, 22, 17, 13, 5, 9, 27)
+for v in values:
+    bst.insert(v)
+
+print('inorder')
+bst.inorder(bst.getRootNode())
+print('preorder')
+bst.preorder(bst.getRootNode())
+print('postorder')
+bst.postorder(bst.getRootNode())
 '''
