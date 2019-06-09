@@ -236,8 +236,6 @@ def quickSortHelper(alist, first, last):
 
 
 def partition(alist, first, last):
-    print('alist, first, last', alist, first, last)
-
     # определяем значение с которым будем сравнивать
     pivotvalue = alist[first]
 
@@ -247,7 +245,6 @@ def partition(alist, first, last):
 
     done = False
     while not done:
-        print('alist', alist)
         # пока левый индекс не пересечется с правым
         # и пока левое значение не окажется меньше дефолтного
         # увеличиваем левый индекс
@@ -266,10 +263,6 @@ def partition(alist, first, last):
         ):
             rightmark = rightmark -1
 
-        print(
-            'left, right', leftmark, rightmark,
-            'values', alist[leftmark], alist[rightmark]
-        )
         # когда правый индекс меньше левого,
         # большие и меньшие элементы раскиданы по разные стороны от дефолтного
         # можно выходить
